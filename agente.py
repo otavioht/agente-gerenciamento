@@ -29,8 +29,8 @@ BROKER_TIMEOUT = 60  # Timeout em segundos
 
 
 PROVISIONING_HOST = "global.azure-devices-provisioning.net"
-ID_SCOPE = os.getenv("DPS_ID_SCOPE")  # DPS ID Scope
-REGISTRATION_ID = os.getenv("DPS_DEVICE_ID")  # Device ID
+ID_SCOPE = os.getenv("ID_SCOPE")  # DPS ID Scope
+REGISTRATION_ID = os.getenv("AGENT_DEVICE_ID")  # Device ID
 ESP_SYMMETRIC_KEY = os.getenv("ESP_DEVICE_KEY")  # Device Key
 AGENT_SYMMETRIC_KEY = os.getenv("AGENT_DEVICE_KEY")  # Device Key
 ESP_MODEL_ID = os.getenv("ESP_MODEL_ID")  # Device Key
@@ -158,6 +158,7 @@ async def main():
     #Callback MQTT para processar mensagens
     def on_message(client, userdata, message):
         value = message.payload.decode('utf-8')
+	print(client, value)
         _, device_id, metric_name = message.topic.split('/')
         data = {}
         data[metric_name] = value
@@ -186,7 +187,7 @@ async def main():
     client = mqtt.Client()
     client.on_message = on_message
     client.connect(BROKER_ADDRESS, BROKER_PORT, BROKER_TIMEOUT)
-    client.subscribe("esp32/#")
+    client.subscribe("esp32/+/+")
     
     # Start the MQTT loop
     client.loop_start()
@@ -269,7 +270,7 @@ async def main():
 
 # Funções para obter métricas da Raspberry Pi
 def get_cpu_usage():
-    return psutil.cpu_percent(interval=1)
+    return psutil.cpu_percent()
 
 def get_memory_usage():
     return psutil.virtual_memory().percent
