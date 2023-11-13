@@ -158,7 +158,7 @@ async def main():
     #Callback MQTT para processar mensagens
     def on_message(client, userdata, message):
         value = message.payload.decode('utf-8')
-	print(client, value)
+        print(client, value)
         _, device_id, metric_name = message.topic.split('/')
         data = {}
         data[metric_name] = value
@@ -372,5 +372,4 @@ if __name__ == "__main__":
         #     print("Something went wrong with the DPS registration")
         
         # client.loop_stop()
-
 
