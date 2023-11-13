@@ -153,7 +153,7 @@ async def main():
         data['usoRede'] = usoRede
         data['usoCPU'] = usoCPU
         data['usoMemoria'] = usoMemoria
-        await send_telemetry_msg(device_client, data)
+        # await send_telemetry_msg(device_client, data)
 
     #Callback MQTT para processar mensagens
     def on_message(client, userdata, message):
@@ -248,7 +248,7 @@ async def main():
     # send_telemetry_task = asyncio.create_task(send_telemetry())
     while True:
         await send_telemetry()
-        await asyncio.sleep(AGENT_TIME_INTERVAL)  # Change this to 60 seconds
+        # await asyncio.sleep(AGENT_TIME_INTERVAL)  # Change this to 60 seconds
     # send_telemetry_task.print_stack()
     # Run the stdin listener in the event loop
     # loop = asyncio.get_running_loop()
