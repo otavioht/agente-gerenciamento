@@ -42,6 +42,7 @@ usoCPU = None
 usoMemoria = None
 usoRede = None
 connectedDevices = None
+client = MQTTClient("client-id")
 
 def get_network_throughput():
     old_value = psutil.net_io_counters().bytes_sent + psutil.net_io_counters().bytes_recv
@@ -131,7 +132,7 @@ async def send_telemetry_msg(device_client, telemetry_msg):
 # MAIN STARTS
 async def main():
     # Send telemetry (current temperature)
-
+    client = MQTTClient("client-id")
     async def send_telemetry():
         print("Sending telemetry for performance")
         global usoCPU
@@ -149,8 +150,6 @@ async def main():
         await send_telemetry_msg(device_client, data)
         connectedDevices = 0
         client.publish("connected_devices", 'GET', qos=1)
-
-    #Callback MQTT para processar mensagens
 
 
 
@@ -335,15 +334,12 @@ async def on_message(client, userdata, message):
 
         send_telemetry_msg(device_client, data)
 async def mqttStart():
-    client = MQTTClient("client-id")
+
     client.on_message = on_message
     await client.connect(BROKER_ADDRESS, BROKER_PORT, BROKER_TIMEOUT)
-    client.subscribe("esp32/+/+")
-    client.subscribe("connected_devices")
-    
     # Start the MQTT loop
     await client.loop_forever()
-    
+
 if __name__ == "__main__":
     print('starting asyncio on main')
     
@@ -351,7 +347,8 @@ if __name__ == "__main__":
     t = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': 5000, 'threaded': True})
     t.start()
     # MQTT Client Setup
-
+    client.subscribe("esp32/+/+")
+    client.subscribe("connected_devices")
     asyncio.run(main())
     asyncio.run(mqttStart())
 
