@@ -134,6 +134,8 @@ async def main():
     # Send telemetry
     client2 = MQTTClient("client2")
     await client2.connect(BROKER_ADDRESS, BROKER_PORT)
+    client2.subscribe("esp32/+/+")
+    client2.subscribe("connected_devices")
 
     async def send_telemetry():
         print("Sending telemetry for performance")
@@ -301,53 +303,49 @@ logging.basicConfig(level=logging.ERROR)
 #     connectedDevices = 0
 #     return
 
+async def on_message(client, userdata, message):
+    value = message.payload.decode('utf-8')
+    if message.topic == "connected_devices" and value == 'CONNECTED':
+        global connectedDevices
+        connectedDevices += 1
+        print(connectedDevices)
+    elif message.topic == "connected_devices" and value == 'GET':
+        print('GET')
+    else:
+        print(client, value)
+        _, device_id, metric_name = message.topic.split('/')
+        data = {}
+        data[metric_name] = value
+        registration_result = await provision_device(
+            "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
+        )
 
-async def mqttStart():
-    async def on_message(client, userdata, message):
-        value = message.payload.decode('utf-8')
-        if message.topic == "connected_devices" and value == 'CONNECTED':
-            global connectedDevices
-            connectedDevices += 1
-            print(connectedDevices)
-        elif message.topic == "connected_devices" and value == 'GET':
-            print('GET')
+        if registration_result.status == "assigned":
+            print("Device was assigned")
+            print(registration_result.registration_state.assigned_hub)
+            print(registration_result.registration_state.device_id)
+
+            device_client = IoTHubDeviceClient.create_from_symmetric_key(
+                symmetric_key=ESP_SYMMETRIC_KEY,
+                hostname=registration_result.registration_state.assigned_hub,
+                device_id=registration_result.registration_state.device_id,
+                product_info=ESP_MODEL_ID,
+            )
         else:
-            print(client, value)
-            _, device_id, metric_name = message.topic.split('/')
-            data = {}
-            data[metric_name] = value
-            registration_result = await provision_device(
-                "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
+            raise RuntimeError(
+                "Could not provision device. Aborting Plug and Play device connection."
             )
 
-            if registration_result.status == "assigned":
-                print("Device was assigned")
-                print(registration_result.registration_state.assigned_hub)
-                print(registration_result.registration_state.device_id)
+        send_telemetry_msg(device_client, data)
 
-                device_client = IoTHubDeviceClient.create_from_symmetric_key(
-                    symmetric_key=ESP_SYMMETRIC_KEY,
-                    hostname=registration_result.registration_state.assigned_hub,
-                    device_id=registration_result.registration_state.device_id,
-                    product_info=ESP_MODEL_ID,
-                )
-            else:
-                raise RuntimeError(
-                    "Could not provision device. Aborting Plug and Play device connection."
-                )
-
-            send_telemetry_msg(device_client, data)
-
+async def mqttStart():
     client = MQTTClient("client1")
     client.on_message = on_message
     await client.connect(BROKER_ADDRESS, BROKER_PORT)
     client.subscribe("esp32/+/+")
     client.subscribe("connected_devices")
     # Start the MQTT loop
-    while True:
-        # Your code here...
-        await asyncio.sleep(1) 
-        
+
 if __name__ == "__main__":
     print('starting asyncio on main')
     
@@ -356,8 +354,8 @@ if __name__ == "__main__":
     t.start()
     # MQTT Client Setup
 
-    asyncio.run(main())
     asyncio.run(mqttStart())
+    asyncio.run(main())
 
 
 #     while True:
