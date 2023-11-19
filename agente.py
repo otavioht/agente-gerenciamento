@@ -20,10 +20,11 @@ from azure.iot.device import Message, MethodResponse
 
 app = Flask(__name__)
 
-AGENT_TIME_INTERVAL = 120 #Intervalo em segundos
+AGENT_TIME_INTERVAL = 300 #Intervalo em segundos
 
 # Configurações do Broker local
 BROKER_ADDRESS = "localhost"  # Endereço do broker Mosquitto
+# BROKER_ADDRESS = "20.120.0.64"  # Endereço do broker Mosquitto
 BROKER_PORT = 1883  # Porta padrão para MQTT
 BROKER_TIMEOUT = 60  # Timeout em segundos
 
@@ -45,19 +46,6 @@ def get_network_throughput():
     time.sleep(1)
     new_value = psutil.net_io_counters().bytes_sent + psutil.net_io_counters().bytes_recv
     return (new_value - old_value)/1000
-
-class ESPCONFIG:
-    def __init__(self, data):
-        self.new_interval = data.get('new_interval', None)
-        self.device_id = data.get('device_id', None)
-        self.reconnect = data.get('reconnect', False)
-
-    def to_dict(self):
-        #Converte o objeto para um dicionário.
-        return {
-            'new_interval': self.new_interval,
-            'reconnect': self.reconnect
-        }
 
 # PROVISION DEVICE
 
@@ -153,44 +141,11 @@ async def main():
         data['usoRede'] = usoRede
         data['usoCPU'] = usoCPU
         data['usoMemoria'] = usoMemoria
-        # await send_telemetry_msg(device_client, data)
+        await send_telemetry_msg(device_client, data)
 
     #Callback MQTT para processar mensagens
-    def on_message(client, userdata, message):
-        value = message.payload.decode('utf-8')
-        print(client, value)
-        _, device_id, metric_name = message.topic.split('/')
-        data = {}
-        data[metric_name] = value
-        registration_result =  provision_device(
-            "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
-        )
 
-        if registration_result.status == "assigned":
-            print("Device was assigned")
-            print(registration_result.registration_state.assigned_hub)
-            print(registration_result.registration_state.device_id)
 
-            device_client = IoTHubDeviceClient.create_from_symmetric_key(
-                symmetric_key=ESP_SYMMETRIC_KEY,
-                hostname=registration_result.registration_state.assigned_hub,
-                device_id=registration_result.registration_state.device_id,
-                product_info=ESP_MODEL_ID,
-            )
-        else:
-            raise RuntimeError(
-                "Could not provision device. Aborting Plug and Play device connection."
-            )
-
-        send_telemetry_msg(device_client, data)
-    # MQTT Client Setup
-    client = mqtt.Client()
-    client.on_message = on_message
-    client.connect(BROKER_ADDRESS, BROKER_PORT, BROKER_TIMEOUT)
-    client.subscribe("esp32/+/+")
-    
-    # Start the MQTT loop
-    client.loop_start()
 
     registration_result = await provision_device(
         PROVISIONING_HOST, ID_SCOPE, REGISTRATION_ID, AGENT_SYMMETRIC_KEY, AGENT_MODEL_ID
@@ -248,7 +203,7 @@ async def main():
     # send_telemetry_task = asyncio.create_task(send_telemetry())
     while True:
         await send_telemetry()
-        # await asyncio.sleep(AGENT_TIME_INTERVAL)  # Change this to 60 seconds
+        await asyncio.sleep(AGENT_TIME_INTERVAL)  # Change this to 60 seconds
     # send_telemetry_task.print_stack()
     # Run the stdin listener in the event loop
     # loop = asyncio.get_running_loop()
@@ -332,6 +287,33 @@ logging.basicConfig(level=logging.ERROR)
 
 # if __name__ == '__main__':
 #     
+def on_message(client, userdata, message):
+    value = message.payload.decode('utf-8')
+    print(client, value)
+    _, device_id, metric_name = message.topic.split('/')
+    data = {}
+    data[metric_name] = value
+    registration_result =  provision_device(
+        "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
+    )
+
+    if registration_result.status == "assigned":
+        print("Device was assigned")
+        print(registration_result.registration_state.assigned_hub)
+        print(registration_result.registration_state.device_id)
+
+        device_client = IoTHubDeviceClient.create_from_symmetric_key(
+            symmetric_key=ESP_SYMMETRIC_KEY,
+            hostname=registration_result.registration_state.assigned_hub,
+            device_id=registration_result.registration_state.device_id,
+            product_info=ESP_MODEL_ID,
+        )
+    else:
+        raise RuntimeError(
+            "Could not provision device. Aborting Plug and Play device connection."
+        )
+
+    send_telemetry_msg(device_client, data)
 
 if __name__ == "__main__":
     print('starting asyncio on main')
@@ -339,7 +321,14 @@ if __name__ == "__main__":
     # Start Flask in a separate thread
     t = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': 5000, 'threaded': True})
     t.start()
-
+    # MQTT Client Setup
+    client = mqtt.Client()
+    client.on_message = on_message
+    client.connect(BROKER_ADDRESS, BROKER_PORT, BROKER_TIMEOUT)
+    client.subscribe("esp32/+/+")
+    
+    # Start the MQTT loop
+    client.loop_start()
     asyncio.run(main())
 
 #     while True:
