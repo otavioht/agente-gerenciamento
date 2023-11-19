@@ -303,17 +303,17 @@ logging.basicConfig(level=logging.ERROR)
 #     connectedDevices = 0
 #     return
 
-async def on_message(client, userdata, message):
-    value = message.payload.decode('utf-8')
-    if message.topic == "connected_devices" and value == 'CONNECTED':
+async def on_message(client, topic, payload, qos, properties):
+    value = payload.decode('utf-8')
+    if topic == "connected_devices" and value == 'CONNECTED':
         global connectedDevices
         connectedDevices += 1
         print(connectedDevices)
-    elif message.topic == "connected_devices" and value == 'GET':
+    elif topic == "connected_devices" and value == 'GET':
         print('GET')
     else:
         print(client, value)
-        _, device_id, metric_name = message.topic.split('/')
+        _, device_id, metric_name = topic.split('/')
         data = {}
         data[metric_name] = value
         registration_result = await provision_device(
