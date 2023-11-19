@@ -123,6 +123,7 @@ async def send_telemetry_msg(device_client, telemetry_msg):
     msg.content_encoding = "utf-8"
     msg.content_type = "application/json"
     print("Sent message")
+    print(msg)
     await device_client.send_message(msg)
 
 
@@ -143,10 +144,10 @@ async def main():
         data['usoRede'] = usoRede
         data['usoCPU'] = usoCPU
         data['usoMemoria'] = usoMemoria
-        await send_telemetry_msg(device_client, connectedDevices)
+        data['dispositivosConectados'] = connectedDevices
+        await send_telemetry_msg(device_client, data)
         connectedDevices = 0
         client.publish("connected_devices", 'GET')
-        await send_telemetry_msg(device_client, data)
 
     #Callback MQTT para processar mensagens
 
@@ -292,11 +293,11 @@ logging.basicConfig(level=logging.ERROR)
 
 # if __name__ == '__main__':
 #     
-def send_connected_devices():
-    global connectedDevices
-    client.publish("connected_devices", connectedDevices)
-    connectedDevices = 0
-    return
+# def send_connected_devices():
+#     global connectedDevices
+#     client.publish("connected_devices", connectedDevices)
+#     connectedDevices = 0
+#     return
 
 def on_message(client, userdata, message):
     value = message.payload.decode('utf-8')
@@ -304,6 +305,8 @@ def on_message(client, userdata, message):
         global connectedDevices
         connectedDevices += 1
         print(connectedDevices)
+    elif message.topic == "connected_devices" and value == 'GET':
+        print('GET')
     else:
         print(client, value)
         _, device_id, metric_name = message.topic.split('/')
