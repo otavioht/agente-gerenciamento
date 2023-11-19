@@ -312,9 +312,13 @@ def on_message(client, userdata, message):
         _, device_id, metric_name = message.topic.split('/')
         data = {}
         data[metric_name] = value
-        registration_result =  provision_device(
+        loop = asyncio.get_event_loop()
+        registration_result = loop.run_until_complete(provision_device(
             "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
-        )
+        ))
+        # registration_result = provision_device(
+        #     "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
+        # )
 
         if registration_result.status == "assigned":
             print("Device was assigned")
