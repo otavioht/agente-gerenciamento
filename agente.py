@@ -133,7 +133,7 @@ async def send_telemetry_msg(device_client, telemetry_msg):
 async def main():
     # Send telemetry
     client2 = MQTTClient("client2")
-    await client2.connect(BROKER_ADDRESS, BROKER_PORT, BROKER_TIMEOUT)
+    await client2.connect(BROKER_ADDRESS, BROKER_PORT)
 
     # Start the MQTT loop
     await client2.loop_forever()
@@ -342,7 +342,7 @@ async def mqttStart():
 
     client = MQTTClient("client1")
     client.on_message = on_message
-    await client.connect(BROKER_ADDRESS, BROKER_PORT, BROKER_TIMEOUT)
+    await client.connect(BROKER_ADDRESS, BROKER_PORT)
     client.subscribe("esp32/+/+")
     client.subscribe("connected_devices")
     # Start the MQTT loop
