@@ -346,6 +346,11 @@ async def mqttStart():
     client.subscribe("connected_devices")
     # Start the MQTT loop
 
+async def main_coroutine():
+    task1 = asyncio.create_task(mqttStart())
+    task2 = asyncio.create_task(main())
+    await asyncio.gather(task1, task2)
+
 if __name__ == "__main__":
     print('starting asyncio on main')
     
@@ -354,7 +359,7 @@ if __name__ == "__main__":
     t.start()
     # MQTT Client Setup
 
-    asyncio.run(asyncio.gather(asyncio.ensure_future(mqttStart()), asyncio.ensure_future(main())))
+    asyncio.run(main_coroutine())
 
 
 #     while True:
