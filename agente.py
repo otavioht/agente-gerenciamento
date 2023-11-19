@@ -1,5 +1,6 @@
 import time
-import paho.mqtt.client as mqtt
+# import paho.mqtt.client as mqtt
+from gmqtt import Client as MQTTClient
 import requests
 import psutil
 import json
@@ -299,7 +300,7 @@ logging.basicConfig(level=logging.ERROR)
 #     connectedDevices = 0
 #     return
 
-def on_message(client, userdata, message):
+async def on_message(client, userdata, message):
     value = message.payload.decode('utf-8')
     if message.topic == "connected_devices" and value == 'CONNECTED':
         global connectedDevices
@@ -312,13 +313,9 @@ def on_message(client, userdata, message):
         _, device_id, metric_name = message.topic.split('/')
         data = {}
         data[metric_name] = value
-        loop = asyncio.get_event_loop()
-        registration_result = loop.run_until_complete(provision_device(
+        registration_result = await provision_device(
             "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
-        ))
-        # registration_result = provision_device(
-        #     "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
-        # )
+        )
 
         if registration_result.status == "assigned":
             print("Device was assigned")
@@ -345,7 +342,7 @@ if __name__ == "__main__":
     t = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': 5000, 'threaded': True})
     t.start()
     # MQTT Client Setup
-    client = mqtt.Client()
+    client = MQTTClient("client-id")
     client.on_message = on_message
     client.connect(BROKER_ADDRESS, BROKER_PORT, BROKER_TIMEOUT)
     client.subscribe("esp32/+/+")
