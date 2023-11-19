@@ -135,8 +135,6 @@ async def main():
     client2 = MQTTClient("client2")
     await client2.connect(BROKER_ADDRESS, BROKER_PORT)
 
-    # Start the MQTT loop
-    await client2.loop_forever()
     async def send_telemetry():
         print("Sending telemetry for performance")
         global usoCPU
@@ -346,8 +344,10 @@ async def mqttStart():
     client.subscribe("esp32/+/+")
     client.subscribe("connected_devices")
     # Start the MQTT loop
-    await client.loop_forever()
-
+    while True:
+        # Your code here...
+        await asyncio.sleep(1) 
+        
 if __name__ == "__main__":
     print('starting asyncio on main')
     
