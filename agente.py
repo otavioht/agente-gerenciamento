@@ -354,7 +354,7 @@ if __name__ == "__main__":
     t.start()
     # MQTT Client Setup
 
-    asyncio.run(asyncio.gather(asyncio.create_task(mqttStart()), asyncio.create_task(main())))
+    asyncio.run(asyncio.gather(asyncio.ensure_future(mqttStart()), asyncio.ensure_future(main())))
 
 
 #     while True:
