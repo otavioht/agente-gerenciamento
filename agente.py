@@ -148,7 +148,7 @@ async def main():
         data['dispositivosConectados'] = connectedDevices
         await send_telemetry_msg(device_client, data)
         connectedDevices = 0
-        client.publish("connected_devices", 'GET')
+        client.publish("connected_devices", 'GET', qos=1)
 
     #Callback MQTT para processar mensagens
 
@@ -334,7 +334,16 @@ async def on_message(client, userdata, message):
             )
 
         send_telemetry_msg(device_client, data)
-
+async def mqttStart():
+    client = MQTTClient("client-id")
+    client.on_message = on_message
+    await client.connect(BROKER_ADDRESS, BROKER_PORT, BROKER_TIMEOUT)
+    client.subscribe("esp32/+/+")
+    client.subscribe("connected_devices")
+    
+    # Start the MQTT loop
+    await client.loop_forever()
+    
 if __name__ == "__main__":
     print('starting asyncio on main')
     
@@ -342,15 +351,10 @@ if __name__ == "__main__":
     t = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': 5000, 'threaded': True})
     t.start()
     # MQTT Client Setup
-    client = MQTTClient("client-id")
-    client.on_message = on_message
-    client.connect(BROKER_ADDRESS, BROKER_PORT, BROKER_TIMEOUT)
-    client.subscribe("esp32/+/+")
-    client.subscribe("connected_devices")
-    
-    # Start the MQTT loop
-    client.loop_start()
+
     asyncio.run(main())
+    asyncio.run(mqttStart())
+
 
 #     while True:
         # client.loop_start()
