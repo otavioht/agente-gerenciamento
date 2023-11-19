@@ -40,6 +40,7 @@ AGENT_MODEL_ID = os.getenv("AGENT_MODEL_ID")  # Device Key
 usoCPU = None
 usoMemoria = None
 usoRede = None
+connectedDevices = None
 
 def get_network_throughput():
     old_value = psutil.net_io_counters().bytes_sent + psutil.net_io_counters().bytes_recv
@@ -134,6 +135,7 @@ async def main():
         global usoCPU
         global usoMemoria
         global usoRede
+        global connectedDevices
         usoCPU = get_cpu_usage()
         usoMemoria = get_memory_usage()
         usoRede = get_network_throughput()
@@ -141,6 +143,9 @@ async def main():
         data['usoRede'] = usoRede
         data['usoCPU'] = usoCPU
         data['usoMemoria'] = usoMemoria
+        await send_telemetry_msg(device_client, connectedDevices)
+        connectedDevices = 0
+        client.publish("connected_devices", 'GET')
         await send_telemetry_msg(device_client, data)
 
     #Callback MQTT para processar mensagens
@@ -287,33 +292,44 @@ logging.basicConfig(level=logging.ERROR)
 
 # if __name__ == '__main__':
 #     
+def send_connected_devices():
+    global connectedDevices
+    client.publish("connected_devices", connectedDevices)
+    connectedDevices = 0
+    return
+
 def on_message(client, userdata, message):
     value = message.payload.decode('utf-8')
-    print(client, value)
-    _, device_id, metric_name = message.topic.split('/')
-    data = {}
-    data[metric_name] = value
-    registration_result =  provision_device(
-        "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
-    )
-
-    if registration_result.status == "assigned":
-        print("Device was assigned")
-        print(registration_result.registration_state.assigned_hub)
-        print(registration_result.registration_state.device_id)
-
-        device_client = IoTHubDeviceClient.create_from_symmetric_key(
-            symmetric_key=ESP_SYMMETRIC_KEY,
-            hostname=registration_result.registration_state.assigned_hub,
-            device_id=registration_result.registration_state.device_id,
-            product_info=ESP_MODEL_ID,
-        )
+    if message.topic == "connected_devices" and value == 'CONNECTED':
+        global connectedDevices
+        connectedDevices += 1
+        print(connectedDevices)
     else:
-        raise RuntimeError(
-            "Could not provision device. Aborting Plug and Play device connection."
+        print(client, value)
+        _, device_id, metric_name = message.topic.split('/')
+        data = {}
+        data[metric_name] = value
+        registration_result =  provision_device(
+            "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
         )
 
-    send_telemetry_msg(device_client, data)
+        if registration_result.status == "assigned":
+            print("Device was assigned")
+            print(registration_result.registration_state.assigned_hub)
+            print(registration_result.registration_state.device_id)
+
+            device_client = IoTHubDeviceClient.create_from_symmetric_key(
+                symmetric_key=ESP_SYMMETRIC_KEY,
+                hostname=registration_result.registration_state.assigned_hub,
+                device_id=registration_result.registration_state.device_id,
+                product_info=ESP_MODEL_ID,
+            )
+        else:
+            raise RuntimeError(
+                "Could not provision device. Aborting Plug and Play device connection."
+            )
+
+        send_telemetry_msg(device_client, data)
 
 if __name__ == "__main__":
     print('starting asyncio on main')
@@ -326,6 +342,7 @@ if __name__ == "__main__":
     client.on_message = on_message
     client.connect(BROKER_ADDRESS, BROKER_PORT, BROKER_TIMEOUT)
     client.subscribe("esp32/+/+")
+    client.subscribe("connected_devices")
     
     # Start the MQTT loop
     client.loop_start()
