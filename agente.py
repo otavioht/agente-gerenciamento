@@ -43,7 +43,7 @@ usoCPU = None
 usoMemoria = None
 usoRede = None
 connectedDevices = None
-
+keys = None
 
 def get_network_throughput():
     old_value = psutil.net_io_counters().bytes_sent + psutil.net_io_counters().bytes_recv
@@ -312,6 +312,7 @@ logging.basicConfig(level=logging.ERROR)
 #     return
 
 async def on_message(client, topic, payload, qos, properties):
+    global keys
     value = payload.decode('utf-8')
     if topic == "connected_devices" and value == 'CONNECTED':
         global connectedDevices
@@ -326,7 +327,7 @@ async def on_message(client, topic, payload, qos, properties):
         data = {}
         data[metric_name] = value
         registration_result = await provision_device(
-            "global.azure-devices-provisioning.net", ID_SCOPE, device_id, ESP_SYMMETRIC_KEY, ESP_MODEL_ID
+            "global.azure-devices-provisioning.net", ID_SCOPE, device_id, keys[device_id], ESP_MODEL_ID
         )
 
         if registration_result.status == "assigned":
@@ -335,7 +336,7 @@ async def on_message(client, topic, payload, qos, properties):
             print(registration_result.registration_state.device_id)
 
             device_client = IoTHubDeviceClient.create_from_symmetric_key(
-                symmetric_key=ESP_SYMMETRIC_KEY,
+                symmetric_key=keys[device_id],
                 hostname=registration_result.registration_state.assigned_hub,
                 device_id=registration_result.registration_state.device_id,
                 product_info=ESP_MODEL_ID,
@@ -362,7 +363,17 @@ async def main_coroutine():
 
 if __name__ == "__main__":
     print('starting asyncio on main')
-    
+    import json
+
+    # The path to your JSON file
+    filename = '../keys.json'
+
+    # Read the file and convert the JSON data to a Python dictionary
+    with open(filename, 'r') as file:
+        keys = json.load(file)
+
+    # Now 'data' is a Python dictionary containing the contents of the JSON file
+    print(keys)
     # Start Flask in a separate thread
     t = Thread(target=app.run, kwargs={'host': '0.0.0.0', 'port': 5000, 'threaded': True})
     t.start()
