@@ -383,6 +383,7 @@ if __name__ == "__main__":
     with open(filename, 'r') as file:
         keys = json.load(file)
 
+    file.close()
     # Now 'data' is a Python dictionary containing the contents of the JSON file
     print(keys)
     # Start Flask in a separate thread
