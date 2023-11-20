@@ -175,24 +175,24 @@ async def main():
     registration_result = await provision_device(
         PROVISIONING_HOST, ID_SCOPE, REGISTRATION_ID, AGENT_SYMMETRIC_KEY, AGENT_MODEL_ID
     )
+    try:
+        if registration_result and registration_result.status == "assigned":
+            print("Device was assigned")
+            print(registration_result.registration_state.assigned_hub)
+            print(registration_result.registration_state.device_id)
 
-    if registration_result and registration_result.status == "assigned":
-        print("Device was assigned")
-        print(registration_result.registration_state.assigned_hub)
-        print(registration_result)
-        print(registration_result.registration_state.device_id)
-
-        device_client = IoTHubDeviceClient.create_from_symmetric_key(
-            symmetric_key=AGENT_SYMMETRIC_KEY,
-            hostname=registration_result.registration_state.assigned_hub,
-            device_id=registration_result.registration_state.device_id,
-            product_info=AGENT_MODEL_ID,
-        )
-    else:
-        raise RuntimeError(
-            "Could not provision device. Aborting Plug and Play device connection."
-        )
-
+            device_client = IoTHubDeviceClient.create_from_symmetric_key(
+                symmetric_key=AGENT_SYMMETRIC_KEY,
+                hostname=registration_result.registration_state.assigned_hub,
+                device_id=registration_result.registration_state.device_id,
+                product_info=AGENT_MODEL_ID,
+            )
+        else:
+            raise RuntimeError(
+                "Could not provision device. Aborting Plug and Play device connection."
+            )
+    except RuntimeError as e:
+        print(f"An error occurred: {e}")
 
     # Connect the client.
     await device_client.connect()
