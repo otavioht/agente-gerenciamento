@@ -18,6 +18,7 @@ from threading import Thread
 from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device import Message, MethodResponse
+import azure.iot.device.exceptions
 
 app = Flask(__name__)
 
@@ -53,16 +54,23 @@ def get_network_throughput():
 # PROVISION DEVICE
 
 async def provision_device(provisioning_host, id_scope, registration_id, symmetric_key, model_id):
+    try:
+        provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
+            provisioning_host=provisioning_host,
+            registration_id=registration_id,
+            id_scope=id_scope,
+            symmetric_key=symmetric_key,
+        )
 
-    provisioning_device_client = ProvisioningDeviceClient.create_from_symmetric_key(
-        provisioning_host=provisioning_host,
-        registration_id=registration_id,
-        id_scope=id_scope,
-        symmetric_key=symmetric_key,
-    )
+        provisioning_device_client.provisioning_payload = {"modelId": model_id}
+        return await provisioning_device_client.register()
+    except azure.iot.device.exceptions.ServiceError as e:
+        print(f"Service error: {e}")
 
-    provisioning_device_client.provisioning_payload = {"modelId": model_id}
-    return await provisioning_device_client.register()
+    except azure.iot.device.exceptions.CredentialError as e:
+        print(f"Credential error: {e}")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
 
 async def execute_command_listener(
     device_client, method_name, user_command_handler, create_user_response_handler
@@ -314,6 +322,7 @@ async def on_message(client, topic, payload, qos, properties):
     else:
         print(client, value)
         _, device_id, metric_name = topic.split('/')
+        print(device_id, metric_name)
         data = {}
         data[metric_name] = value
         registration_result = await provision_device(
@@ -336,7 +345,7 @@ async def on_message(client, topic, payload, qos, properties):
                 "Could not provision device. Aborting Plug and Play device connection."
             )
 
-        send_telemetry_msg(device_client, data)
+        await send_telemetry_msg(device_client, data)
 
 async def mqttStart():
     client = MQTTClient("client1")
