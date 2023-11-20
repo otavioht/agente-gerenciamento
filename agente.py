@@ -19,6 +19,7 @@ from azure.iot.device.aio import IoTHubDeviceClient
 from azure.iot.device.aio import ProvisioningDeviceClient
 from azure.iot.device import Message, MethodResponse
 import azure.iot.device.exceptions
+from azure.iot.device.exceptions import NoConnectionError
 
 app = Flask(__name__)
 
@@ -129,12 +130,20 @@ async def execute_property_listener(device_client):
         await device_client.patch_twin_reported_properties(prop_dict)
 
 async def send_telemetry_msg(device_client, telemetry_msg):
-    msg = Message(json.dumps(telemetry_msg))
-    msg.content_encoding = "utf-8"
-    msg.content_type = "application/json"
-    print("Sent message")
-    print(msg)
-    await device_client.send_message(msg)
+    try:
+        msg = Message(json.dumps(telemetry_msg))
+        msg.content_encoding = "utf-8"
+        msg.content_type = "application/json"
+        print("Sent message")
+        print(msg)
+        await device_client.send_message(msg)
+    except NoConnectionError:
+        print("No connection to IoTHub. Trying to reconnect...")
+        await device_client.connect()
+        await device_client.send_message(msg)
+        print("Telemetry message sent after reconnecting")
+    except Exception as e:
+        print(f"An error occurred while sending telemetry: {e}")
 
 
 # MAIN STARTS
@@ -163,13 +172,11 @@ async def main():
         connectedDevices = 0
         client2.publish("connected_devices", 'GET', qos=1)
 
-
-
     registration_result = await provision_device(
         PROVISIONING_HOST, ID_SCOPE, REGISTRATION_ID, AGENT_SYMMETRIC_KEY, AGENT_MODEL_ID
     )
 
-    if registration_result.status == "assigned":
+    if registration_result and registration_result.status == "assigned":
         print("Device was assigned")
         print(registration_result.registration_state.assigned_hub)
         print(registration_result)
@@ -330,7 +337,7 @@ async def on_message(client, topic, payload, qos, properties):
             "global.azure-devices-provisioning.net", ID_SCOPE, device_id, keys[device_id], ESP_MODEL_ID
         )
 
-        if registration_result.status == "assigned":
+        if registration_result and registration_result.status == "assigned":
             print("Device was assigned")
             print(registration_result.registration_state.assigned_hub)
             print(registration_result.registration_state.device_id)
@@ -363,7 +370,6 @@ async def main_coroutine():
 
 if __name__ == "__main__":
     print('starting asyncio on main')
-    import json
 
     # The path to your JSON file
     filename = '../keys.json'
