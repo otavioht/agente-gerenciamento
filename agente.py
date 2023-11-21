@@ -363,9 +363,14 @@ async def on_message(client, topic, payload, qos, properties):
 async def mqttStart():
     client = MQTTClient("client1")
     client.on_message = on_message
-    await client.connect(BROKER_ADDRESS, BROKER_PORT)
-    client.subscribe("esp32/+/+")
-    client.subscribe("connected_devices")
+    try:
+        await client.connect(BROKER_ADDRESS, BROKER_PORT)
+        client.subscribe("esp32/+/+")
+        client.subscribe("connected_devices")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        print("Trying to reconnect...")
+        await client.connect(BROKER_ADDRESS, BROKER_PORT)
     # Start the MQTT loop
 
 async def main_coroutine():
