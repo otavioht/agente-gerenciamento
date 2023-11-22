@@ -45,6 +45,7 @@ usoMemoria = None
 usoRede = None
 connectedDevices = None
 keys = None
+LAST_MESSAGE_TIME = {}  # Dictionary to store the timestamp of the last message for each device
 
 def get_network_throughput():
     old_value = psutil.net_io_counters().bytes_sent + psutil.net_io_counters().bytes_recv
@@ -329,9 +330,10 @@ async def on_message(client, topic, payload, qos, properties):
     elif topic == "connected_devices" and value == 'GET':
         print('GET')
     else:
-        print(client, value)
         _, device_id, metric_name = topic.split('/')
-        print(device_id, metric_name)
+        print(device_id, metric_name, value)
+        print(f'Received message from {device_id}:', payload.decode())
+        LAST_MESSAGE_TIME[device_id] = time.time() 
         data = {}
         data[metric_name] = value
         registration_result = await provision_device(
@@ -339,8 +341,6 @@ async def on_message(client, topic, payload, qos, properties):
         )
         try:
             if registration_result and registration_result.status == "assigned":
-                print("Device was assigned")
-                print(registration_result.registration_state.assigned_hub)
                 print(registration_result.registration_state.device_id)
 
                 device_client = IoTHubDeviceClient.create_from_symmetric_key(
@@ -359,10 +359,59 @@ async def on_message(client, topic, payload, qos, properties):
         except RuntimeError as e:
             print(f"An error occurred: {e}")
 
+def on_disconnect(client, userdata, rc):
+    if rc != 0:
+        print("Unexpected disconnection.")
+    # Attempt to reconnect
+    while True:
+        try:
+            print("Attempting to reconnect...")
+            client.reconnect()
+            print("Reconnected!")
+            break
+        except ConnectionError:
+            print("Failed to reconnect. Trying again in 5 seconds...")
+            time.sleep(5)
+
+async def check_last_message():
+    while True:
+        await asyncio.sleep(10)  # Check every 10 seconds
+        if(LAST_MESSAGE_TIME != {}):
+            current_time = time.time()
+            for device_id, last_msg_time in list(LAST_MESSAGE_TIME.items()):
+                if (current_time - last_msg_time) > 600:  # 10 minutes = 600 seconds
+                    print(f"It's been more than 10 minutes since the last message from device {device_id}.")
+                    data = {}
+                    data['status'] = 'Offline'
+                    registration_result = await provision_device(
+                        "global.azure-devices-provisioning.net", ID_SCOPE, device_id, keys[device_id], ESP_MODEL_ID
+                    )
+                    try:
+                        if registration_result and registration_result.status == "assigned":
+                            print(registration_result.registration_state.device_id)
+
+                            device_client = IoTHubDeviceClient.create_from_symmetric_key(
+                                symmetric_key=keys[device_id],
+                                hostname=registration_result.registration_state.assigned_hub,
+                                device_id=registration_result.registration_state.device_id,
+                                product_info=ESP_MODEL_ID,
+                            )
+                            await device_client.connect()
+                            await send_telemetry_msg(device_client, data)
+                            await device_client.shutdown()
+                        else:
+                            raise RuntimeError(
+                                "Could not provision device. Aborting Plug and Play device connection."
+                            )
+                    except RuntimeError as e:
+                        print(f"An error occurred: {e}")
+                    # If you want to reset the timer after the action, uncomment the next line
+                    del LAST_MESSAGE_TIME[device_id]
 
 async def mqttStart():
     client = MQTTClient("client1")
     client.on_message = on_message
+    client.on_disconnect = on_disconnect
     try:
         await client.connect(BROKER_ADDRESS, BROKER_PORT)
         client.subscribe("esp32/+/+")
@@ -376,7 +425,8 @@ async def mqttStart():
 async def main_coroutine():
     task1 = asyncio.create_task(mqttStart())
     task2 = asyncio.create_task(main())
-    await asyncio.gather(task1, task2)
+    task3 = asyncio.create_task(check_last_message())
+    await asyncio.gather(task1, task2, task3)
 
 if __name__ == "__main__":
     print('starting asyncio on main')
@@ -397,36 +447,4 @@ if __name__ == "__main__":
     # MQTT Client Setup
 
     asyncio.run(main_coroutine())
-
-
-#     while True:
-        # client.loop_start()
-        
-        # Coleta e envia métricas da Raspberry Pi
-        # usoCPU = get_cpu_usage()
-        # usoMemoria = get_memory_usage()
-        # usoRede = get_network_throughput()
-        # response = send_metrics_from_pi_to_cloud(cpu, memory, network)
-        # Imprime resposta da API após enviar métricas da Pi
-        # print(response)  
-        # data = []
-        
-        # for i in range(1, 5):
-        #     data.append(generateDataObject(usoCPU, usoMemoria, usoRede))
-        #     print(data)
-        #     time.sleep(AGENT_TIME_INTERVAL)
-        # if (iot_hub_host != ""):
-        #     errorDuringSend = send_batch_data(device_id, iot_hub_host, device_symmetric_key, data)
-
-        #     if (errorDuringSend):
-        #         print("The following data was unable to be sent:")
-        #         for x in data:
-        #             if (x["error"]):
-        #                 print("\tdata:{0}".format(x))   
-        #     else:
-        #         print("Success sending batch")
-        # else:
-        #     print("Something went wrong with the DPS registration")
-        
-        # client.loop_stop()
 
