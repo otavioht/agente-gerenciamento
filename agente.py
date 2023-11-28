@@ -376,7 +376,8 @@ def on_disconnect(client, userdata, rc):
 async def check_last_message():
     while True:
         await asyncio.sleep(10)  # Check every 10 seconds
-        if(LAST_MESSAGE_TIME != {}):
+        print('Checking last message')
+        if(len(LAST_MESSAGE_TIME) > 0):
             current_time = time.time()
             for device_id, last_msg_time in list(LAST_MESSAGE_TIME.items()):
                 if (current_time - last_msg_time) > 600:  # 10 minutes = 600 seconds
