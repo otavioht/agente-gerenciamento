@@ -380,7 +380,8 @@ async def check_last_message():
         if(len(LAST_MESSAGE_TIME) > 0):
             current_time = time.time()
             print(current_time)
-            for device_id, last_msg_time in list(LAST_MESSAGE_TIME.items()):
+            for device_id, last_msg_time in LAST_MESSAGE_TIME.items():
+                print(last_msg_time)
                 if (current_time - last_msg_time) > 600:  # 10 minutes = 600 seconds
                     print(f"It's been more than 10 minutes since the last message from device {device_id}.")
                     data = {}
