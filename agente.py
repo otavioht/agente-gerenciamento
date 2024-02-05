@@ -375,13 +375,12 @@ def on_disconnect(client, userdata, rc):
 
 async def check_last_message():
     while True:
+        toDelete = []
         await asyncio.sleep(10)  # Check every 10 seconds
         print('Checking last message')
         if(len(LAST_MESSAGE_TIME) > 0):
             current_time = time.time()
-            print(current_time)
             for device_id, last_msg_time in LAST_MESSAGE_TIME.items():
-                print(last_msg_time)
                 if (current_time - last_msg_time) > 600:  # 10 minutes = 600 seconds
                     print(f"It's been more than 10 minutes since the last message from device {device_id}.")
                     data = {}
@@ -409,7 +408,10 @@ async def check_last_message():
                     except RuntimeError as e:
                         print(f"An error occurred: {e}")
                     # If you want to reset the timer after the action, uncomment the next line
-                    # del LAST_MESSAGE_TIME[device_id]
+                    toDelete.append(device_id)
+
+            for device_id in toDelete:
+                del LAST_MESSAGE_TIME[device_id]
         else:
             print("No devices connected")
 
