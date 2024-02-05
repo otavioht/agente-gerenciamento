@@ -409,7 +409,7 @@ async def check_last_message():
                     except RuntimeError as e:
                         print(f"An error occurred: {e}")
                     # If you want to reset the timer after the action, uncomment the next line
-                    del LAST_MESSAGE_TIME[device_id]
+                    # del LAST_MESSAGE_TIME[device_id]
         else:
             print("No devices connected")
 
