@@ -323,11 +323,11 @@ logging.basicConfig(level=logging.ERROR)
 async def on_message(client, topic, payload, qos, properties):
     global keys
     value = payload.decode('utf-8')
-    if topic == "connected_devices" and value == 'CONNECTED':
+    if topic == "connected_devices" and value == "CONNECTED":
         global connectedDevices
         connectedDevices += 1
         print(connectedDevices)
-    elif topic == "connected_devices" and value == 'GET':
+    elif topic == "connected_devices" and value == "GET":
         print('GET')
     else:
         _, device_id, metric_name = topic.split('/')
@@ -379,6 +379,7 @@ async def check_last_message():
         print('Checking last message')
         if(len(LAST_MESSAGE_TIME) > 0):
             current_time = time.time()
+            print(current_time)
             for device_id, last_msg_time in list(LAST_MESSAGE_TIME.items()):
                 if (current_time - last_msg_time) > 600:  # 10 minutes = 600 seconds
                     print(f"It's been more than 10 minutes since the last message from device {device_id}.")
@@ -408,6 +409,8 @@ async def check_last_message():
                         print(f"An error occurred: {e}")
                     # If you want to reset the timer after the action, uncomment the next line
                     del LAST_MESSAGE_TIME[device_id]
+        else:
+            print("No devices connected")
 
 async def mqttStart():
     client = MQTTClient("client1")
